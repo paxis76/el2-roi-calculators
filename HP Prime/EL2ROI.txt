@@ -1,0 +1,183 @@
+// Endless Legend 2 ROI (HP Prime G2)
+// Edit the table directly:
+// Arrows/Enter move, digits type,
+// Del deletes, Esc clears the field,
+// Home quits.
+
+// Weights: value of 1 unit in Dust.
+// 1 Prod = 3 Dust = 1.5 Food = 0.5 Sci
+// 1 Influence = 2.5 Dust
+LOCAL WPROD:=3,WFOOD:=2,WDUST:=1,WSCI:=6;
+LOCAL WINFL:=2.5;
+
+// Text: font (0 current, 1 small,
+// 2 large) and offsets in a row.
+LOCAL FNT:=2,TY:=2,TX:=6;
+
+LOCAL txt,wt,cWHITE,cBLACK;
+LOCAL cGREY,cNAVY;
+LOCAL cGREEN,cRED,cSEL,cRow;
+// GETKEY IDs of the keys 0-9
+LOCAL kd:={47,42,43,44,37,38,39,32,33,34};
+
+FillBox();
+PutText();
+CellVal();
+DrawCell();
+DrawStat();
+DrawRes();
+
+EXPORT EL2ROI()
+BEGIN
+ LOCAL ix,jx,k,ch;
+ LOCAL s,d,fresh,quit;
+ wt:={WPROD,WFOOD,WDUST,WSCI,WINFL};
+ cWHITE:=RGB(255,255,255);
+ cBLACK:=RGB(0,0,0);
+ cGREY:=RGB(225,225,225);
+ cNAVY:=RGB(30,40,90);
+ cGREEN:=RGB(0,130,60);
+ cRED:=RGB(190,30,30);
+ cSEL:=RGB(255,225,90);
+ cRow:={RGB(200,110,30),RGB(90,170,60),
+  RGB(220,180,0),RGB(40,120,220),
+  RGB(150,80,180)};
+ // 10 cells: 1-5 cost, 6-10 gain/turn
+ txt:={"","","","","","","","","",""};
+ DrawStat();
+ FOR ix FROM 1 TO 10 DO
+  DrawCell(ix,ix==1);
+ END;
+ DrawRes();
+ ix:=1;
+ fresh:=1; // next digit overwrites
+ quit:=0;
+ REPEAT
+  REPEAT
+   k:=GETKEY;
+  UNTIL k>=0;
+  jx:=ix;
+  ch:="";
+  CASE
+   IF k==5 THEN quit:=1; END;
+   IF k==12 OR k==30 THEN jx:=(ix MOD 10)+1; END;
+   IF k==2 THEN jx:=((ix+8) MOD 10)+1; END;
+   IF k==7 THEN jx:=((ix-1) MOD 5)+1; END;
+   IF k==8 THEN jx:=((ix-1) MOD 5)+6; END;
+   IF k==19 THEN
+    s:=txt(ix);
+    IF fresh OR DIM(s)<=1 THEN
+     txt(ix):="";
+    ELSE
+     txt(ix):=LEFT(s,DIM(s)-1);
+    END;
+    fresh:=0;
+   END;
+   IF k==4 THEN txt(ix):=""; fresh:=0; END;
+   IF k==48 THEN ch:="."; END;
+   DEFAULT
+    d:=POS(kd,k);
+    IF d>0 THEN ch:=STRING(d-1); END;
+  END;
+  IF DIM(ch)>0 THEN
+   IF fresh THEN s:=""; ELSE s:=txt(ix); END;
+   fresh:=0;
+   IF DIM(s)<7 AND (ch=="." AND INSTRING(s,".")>0)==0 THEN
+    txt(ix):=s+ch;
+   END;
+  END;
+  IF quit==0 THEN
+   IF jx<>ix THEN
+    DrawCell(ix,0);
+    ix:=jx;
+    fresh:=1;
+   END;
+   DrawCell(ix,1);
+   DrawRes();
+  END;
+ UNTIL quit;
+END;
+
+// Filled rectangle, top left x,y
+FillBox(x,y,w,h,c)
+BEGIN
+ RECT_P(G0,x,y,x+w-1,y+h-1,c,c);
+END;
+
+// Text with top left at x,y
+PutText(x,y,s,c)
+BEGIN
+ TEXTOUT_P(s,G0,x,y+TY,FNT,c);
+END;
+
+// Number in cell ix (empty = 0)
+CellVal(ix)
+BEGIN
+ LOCAL s:=txt(ix);
+ IF s=="" OR s=="." THEN RETURN 0; END;
+ RETURN EXPR(s);
+END;
+
+// Draw cell ix, highlighted if sel
+DrawCell(ix,sel)
+BEGIN
+ LOCAL x,y,s,c;
+ x:=140+92*IP((ix-1)/5);
+ y:=43+19*((ix-1) MOD 5);
+ IF sel THEN c:=cSEL; ELSE c:=cWHITE; END;
+ FillBox(x,y,84,18,c);
+ s:=txt(ix);
+ IF s=="" THEN s:="0"; END;
+ PutText(x+TX,y,s,cBLACK);
+END;
+
+// Fixed parts of the screen
+DrawStat()
+BEGIN
+ LOCAL r,y,n;
+ n:={"Prod","Food","Dust","Sci","Infl"};
+ FillBox(0,0,320,240,cWHITE);
+ FillBox(0,0,320,22,cNAVY);
+ PutText(8,1,"Endless Legend 2 ROI",cWHITE);
+ FillBox(0,22,320,20,cGREY);
+ PutText(24,22,"Res",cBLACK);
+ PutText(80,22,"Wt",cBLACK);
+ PutText(140+TX,22,"Cost",cBLACK);
+ PutText(232+TX,22,"Gain/t",cBLACK);
+ FOR r FROM 1 TO 5 DO
+  y:=43+19*(r-1);
+  FillBox(8,y+4,10,10,cRow(r));
+  PutText(24,y,n(r),cBLACK);
+  PutText(80,y,"x"+STRING(wt(r),2,1),cBLACK);
+ END;
+ LINE_P(G0,0,139,319,139,cBLACK);
+ PutText(8,141,"as Prod",cBLACK);
+ PutText(8,204,"Arrows/Enter: move",cBLACK);
+ PutText(8,221,"Del/Esc: delete   Home: quit",cBLACK);
+END;
+
+// Totals (as Prod) and payback
+DrawRes()
+BEGIN
+ LOCAL cost,gain,t,n;
+ LOCAL r;
+ cost:=0;
+ gain:=0;
+ FOR r FROM 1 TO 5 DO
+  cost:=cost+CellVal(r)*wt(r);
+  gain:=gain+CellVal(r+5)*wt(r);
+ END;
+ FillBox(140,141,180,18,cWHITE);
+ PutText(140+TX,141,STRING(cost/wt(1),2,1),cBLACK);
+ PutText(232+TX,141,STRING(gain/wt(1),2,1),cBLACK);
+ IF gain>0 THEN
+  t:=cost/gain;
+  n:=CEILING(t-0.000000001);
+  FillBox(0,161,320,40,cGREEN);
+  PutText(8,162,"Payback: "+STRING(n)+" turns",cWHITE);
+  PutText(8,181,"exact: "+STRING(t,2,1)+" turns",cWHITE);
+ ELSE
+  FillBox(0,161,320,40,cRED);
+  PutText(8,171,"No yield: no payback",cWHITE);
+ END;
+END;
